@@ -14,7 +14,6 @@
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
   "dependencies": {
-    "sharp": "^0.33.2",
-    "node-addon-api": "^7.0.0"
+    "sharp": "^0.33.2"
   }
 }
