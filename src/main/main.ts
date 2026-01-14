@@ -1,17 +1,17 @@
 /* eslint global-require: off, no-console: off, promise/always-return: off */
 
 /**
- * This module executes inside of electron's main process. You can start
- * electron renderer process from here and communicate with the other processes
- * through IPC.
- *
- * When running `npm run build` or `npm run build:main`, this file is compiled to
- * `./src/main.js` using webpack. This gives us some performance wins.
+ * PixelShrink - Image Compression App
+ * Main process handling file operations and image compression
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import fs from 'fs';
+import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+
+// Sharp is imported dynamically to avoid issues with native modules
+let sharp: typeof import('sharp');
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -55,9 +55,11 @@ const createWindow = async () => {
 
   mainWindow = new BrowserWindow({
     show: false,
-    width: 1024,
-    height: 728,
-
+    width: 1200,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'PixelShrink',
     icon: getAssetPath('icon.png'),
     webPreferences: {
       preload: app.isPackaged
@@ -91,9 +93,143 @@ const createWindow = async () => {
     shell.openExternal(edata.url);
     return { action: 'deny' };
   });
-
-  // Remove this if your app does not use auto updates
 };
+
+// IPC Handlers for PixelShrink
+
+// Select image files
+ipcMain.handle('select-files', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] },
+    ],
+  });
+
+  if (!result.canceled) {
+    return result.filePaths;
+  }
+  return [];
+});
+
+// Select destination folder
+ipcMain.handle('select-destination', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+  });
+
+  if (!result.canceled) {
+    return result.filePaths[0];
+  }
+  return '';
+});
+
+// Compress images
+interface CompressionOptions {
+  quality: number;
+  width: number;
+  height: number;
+  addSuffix: boolean;
+}
+
+interface CompressionPayload {
+  files: string[];
+  destination: string;
+  options: CompressionOptions;
+}
+
+interface CompressionResult {
+  file: string;
+  originalSize: number;
+  compressedSize: number;
+  savingsPercent: string;
+  success: boolean;
+  error?: string;
+}
+
+ipcMain.handle(
+  'compress-images',
+  async (_event, payload: CompressionPayload): Promise<CompressionResult[]> => {
+    const { files, destination, options } = payload;
+
+    // Lazy load sharp
+    if (!sharp) {
+      sharp = require('sharp');
+    }
+
+    if (!fs.existsSync(destination)) {
+      fs.mkdirSync(destination, { recursive: true });
+    }
+
+    const results: CompressionResult[] = [];
+
+    for (const file of files) {
+      const ext = path.extname(file);
+      const baseName = path.basename(file, ext);
+      const outputName = options.addSuffix
+        ? `${baseName}_compressed${ext}`
+        : `${baseName}${ext}`;
+      const outputPath = path.join(destination, outputName);
+
+      try {
+        let sharpInstance = sharp(file);
+
+        // Apply resize if width or height is specified
+        if (options.width > 0 || options.height > 0) {
+          sharpInstance = sharpInstance.resize({
+            width: options.width > 0 ? options.width : undefined,
+            height: options.height > 0 ? options.height : undefined,
+            fit: 'inside',
+            withoutEnlargement: true,
+          });
+        }
+
+        // Apply format-specific compression options
+        const format = ext.toLowerCase();
+        if (format === '.jpg' || format === '.jpeg') {
+          sharpInstance = sharpInstance.jpeg({ quality: options.quality });
+        } else if (format === '.png') {
+          sharpInstance = sharpInstance.png({
+            quality: options.quality,
+            compressionLevel: 9,
+          });
+        } else if (format === '.webp') {
+          sharpInstance = sharpInstance.webp({ quality: options.quality });
+        } else if (format === '.gif') {
+          sharpInstance = sharpInstance.gif();
+        }
+
+        await sharpInstance.toFile(outputPath);
+
+        // Get file sizes
+        const originalSize = fs.statSync(file).size;
+        const compressedSize = fs.statSync(outputPath).size;
+
+        results.push({
+          file: outputName,
+          originalSize,
+          compressedSize,
+          savingsPercent: (
+            ((originalSize - compressedSize) / originalSize) *
+            100
+          ).toFixed(2),
+          success: true,
+        });
+      } catch (error) {
+        results.push({
+          file: path.basename(file),
+          originalSize: 0,
+          compressedSize: 0,
+          savingsPercent: '0',
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    return results;
+  },
+);
 
 /**
  * Add event listeners...
