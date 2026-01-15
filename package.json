@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/electron-react-boilerplate/electron-react-boilerplate.git"
+    "url": "git+https://github.com/ahmedoothman/pixelshrink.git"
   },
   "license": "MIT",
   "author": {
@@ -186,6 +186,7 @@
       "package.json"
     ],
     "mac": {
+      "identity": null,
       "notarize": false,
       "target": {
         "target": "default",
@@ -195,7 +196,7 @@
         ]
       },
       "type": "distribution",
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
       "gatekeeperAssess": false
@@ -235,8 +236,8 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "electron-react-boilerplate",
-      "repo": "electron-react-boilerplate"
+      "owner": "ahmedoothman",
+      "repo": "pixelshrink"
     }
   },
   "collective": {
