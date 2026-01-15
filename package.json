@@ -186,7 +186,6 @@
       "package.json"
     ],
     "mac": {
-      "identity": null,
       "notarize": false,
       "target": {
         "target": "default",
@@ -196,7 +195,7 @@
         ]
       },
       "type": "distribution",
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
       "gatekeeperAssess": false
@@ -236,8 +235,8 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "ahmedoothman",
-      "repo": "pixelshrink"
+      "owner": "electron-react-boilerplate",
+      "repo": "electron-react-boilerplate"
     }
   },
   "collective": {
